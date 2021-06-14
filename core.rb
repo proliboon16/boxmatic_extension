@@ -13,22 +13,13 @@ module TestPlugin
       # Initialize InputPoint object
       @cursor = Sketchup::InputPoint.new
 
-      # two 2D points for calculating the square's dimensions
+      # 2D point for calculating the square's dimensions
       @first_point = []
 
     end
 
     # deactivate tool in certain situations
     def deactivate(view)
-      view.invalidate
-    end
-
-    # resume and suspend functions eg. on drag-and-release
-    def resume(view)
-      view.invalidate
-    end
-
-    def suspend(view)
       view.invalidate
     end
 
@@ -61,22 +52,17 @@ module TestPlugin
       view.invalidate
     end # onLButtonDown method
 
-    # define cursor style when tool is activated
-    CURSOR = 632
-    def onSetCursor
-      UI.set_cursor(CURSOR)
-    end
 
-    def enableVCB?
-      return true
+    def onSetCursor
+      # default to 632 as custom tool image is unavailable
+      UI.set_cursor(632)
     end
 
     # BELOW ARE THE CUSTOM METHODS
 
-    # Draw a square on ground plane
-    # based on the dimensions provided by either
-    # functions: setting 2 points or user input values
-    # for two corners by typing in the Value Content Box
+    # Draw a 4x4 square on ground plane
+    # based on the dimensions calculated
+    # from the position of the @first_point
     def draw_floor
 
       # temporary implementation of using meters instead
@@ -99,17 +85,28 @@ module TestPlugin
 
       # draw face from 4 points and pull it back by -20
       rectangle = Sketchup.active_model.active_entities.add_face(pt1, pt3, pt2, pt4)
-      vertices = rectangle.vertices
 
-      # omit the porch area from the initial rectangular floor
-      @porch_area = Sketchup.active_model.active_entities.add_face(porch, porch_xup, pt2, porch_yright)
-      @porch_area.erase!
+      # omit the porch area from the initial rectangular floor.
+      # getting the vertices first for the deletion of two unused edges
+      porch_area = Sketchup.active_model.active_entities.add_face(porch, porch_xup, pt2, porch_yright)
+      vertices = porch_area.vertices
+      porch_area.erase!
+
+      # delete two vertices that contain the porch area
+      edge1, edge2 = vertices[0].edges
+      edge1.erase!
+      edge2.erase!
 
       # floor area without the porch section
-      vertex1 = vertices[0]
-      @floor_area = vertices[0].faces.first
+      vertex1 = vertices[2]
+      @floor = vertex1.faces.first
 
-      @floor_area.pushpull(-2*meter_multiplier, true)
+      # define a layout for the inner and outer wall offsets
+      @floor_layout = @floor
+      @floor_layout.pushpull(-2*meter_multiplier, false)
+
+      # push the floor 0.20 to the ground
+      @floor.pushpull(0.20*meter_multiplier, true)
 
       reset
       view.invalidate
@@ -120,14 +117,6 @@ module TestPlugin
     #successful drawing of a rectangle/square
     def reset
       @first_point.clear
-    end
-
-    def genererate_wall(group)
-
-    end
-
-    def generate_door
-
     end
 
   end # BoxMatic class
