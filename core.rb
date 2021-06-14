@@ -12,16 +12,9 @@ module TestPlugin
 
       # Initialize InputPoint object
       @cursor = Sketchup::InputPoint.new
-      puts "BoxMatic loaded"
 
       # two 2D points for calculating the square's dimensions
       @first_point = []
-      @second_point = []
-
-      @sides = 0.00
-
-      #Sketchup.status_text = "BoxMatic loaded."
-      Sketchup.vcb_label = "Sides"
 
     end
 
@@ -43,16 +36,17 @@ module TestPlugin
     # tool is cancelled
     def onCancel(reason, view)
       @first_point = []
-      @second_point = []
       view.invalidate
     end
 
     def onMouseMove (flags, x, y, view)
+
+      @cursor.pick(view, x, y)
+
       # display cursor coordinates on status text bar
       # as mouse is hovering over the view port
-      @cursor.pick(view, x, y)
-      @x, @y = @cursor.position.to_a
-      Sketchup.status_text = "#{@x}, #{@y}"
+      x, y = @cursor.position.to_a
+      Sketchup.status_text = "#{x}, #{y}"
 
       view.invalidate
     end # onMouseMove method
@@ -61,49 +55,20 @@ module TestPlugin
     # the positions of the other two points to make a rectangle
     def onLButtonDown (flags, x, y, view)
 
-      if @first_point.length > 0
-
-        @second_point = [@x.round(2), @y.round(2)]
-        @pt2 = @second_point
-        puts "2nd point: #{@pt2}"
-        @first_point.clear
-
-        draw_square(@pt1, @pt2)
-      else
-        @first_point = [@x.round(2), @y.round(2)]
-        @pt1 = [@x.round(2), @y.round(2)]
-        puts "1st point: #{@pt1}"
-      end
+      @first_point = @cursor.position.to_a
+      draw_floor
 
       view.invalidate
     end # onLButtonDown method
 
+    # define cursor style when tool is activated
+    CURSOR = 632
     def onSetCursor
-      UI.set_cursor(632)
+      UI.set_cursor(CURSOR)
     end
 
     def enableVCB?
       return true
-    end
-
-    def onUserText (text, view)
-      sides = text.to_f
-
-      # If ONLY the first point is set by mouse click, we draw a square
-      # using the value on the VCB user input for all sides
-      if @first_point.length > 0 && @second_point.length == 0
-
-        pt2 = [ @pt1[0]+sides, @pt1[1]+sides ]
-        puts "@pt1 value: #{@pt1}"
-        puts "pt2 value: #{pt2}"
-
-        draw_square(@pt1, pt2)
-      end
-
-      puts "VCB value: #{@sides}"
-
-      draw_square
-      view.invalidate
     end
 
     # BELOW ARE THE CUSTOM METHODS
@@ -112,31 +77,58 @@ module TestPlugin
     # based on the dimensions provided by either
     # functions: setting 2 points or user input values
     # for two corners by typing in the Value Content Box
-    def draw_square(first, second)
+    def draw_floor
 
-      pt1, pt2 = first, second
-      pt3 = [ first.x, second.y ]
-      pt4 = [ second.x, first.y ]
+      # temporary implementation of using meters instead
+      # of inches in generating models
+      meter_multiplier = 39.37
+      sides = 4*meter_multiplier
 
-      #draw face from 4 points and pull it back by 20
-      a_face = Sketchup.active_model.active_entities.add_face(pt1, pt3, pt2, pt4)
-      a_face.pushpull(-20, true)
+      # Define points 2, 3 and 4 based on the coordinates
+      # of @firstpoint.
+      pt1 = [ @first_point.x, @first_point.y ]
+      pt2 = [ pt1.x+sides, pt1.y+sides ]
+      pt3 = [ @first_point.x, pt2.y ]
+      pt4 = [ pt2.x, @first_point.y ]
+
+      # create a 1x1 area inside the floor from the second point
+      # pt2 and omit to make a porch section
+      porch = [ pt2.x-1*meter_multiplier, pt2.y-1*meter_multiplier ]
+      porch_xup = [porch.x, pt2.y]
+      porch_yright = [pt2.x, porch.y]
+
+      # draw face from 4 points and pull it back by -20
+      rectangle = Sketchup.active_model.active_entities.add_face(pt1, pt3, pt2, pt4)
+      vertices = rectangle.vertices
+
+      # omit the porch area from the initial rectangular floor
+      @porch_area = Sketchup.active_model.active_entities.add_face(porch, porch_xup, pt2, porch_yright)
+      @porch_area.erase!
+
+      # floor area without the porch section
+      vertex1 = vertices[0]
+      @floor_area = vertices[0].faces.first
+
+      @floor_area.pushpull(-2*meter_multiplier, true)
 
       reset
       view.invalidate
 
-
-    end # draw_square method
+    end # draw_floor method
 
     # Reset values of instance variables after every
     #successful drawing of a rectangle/square
     def reset
-      @pt1, @pt2 = nil
       @first_point.clear
-      @second_point.clear
     end
 
+    def genererate_wall(group)
 
+    end
+
+    def generate_door
+
+    end
 
   end # BoxMatic class
 
