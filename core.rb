@@ -121,17 +121,18 @@ module TestPlugin
 
       floor_layout = Sketchup.active_model.active_entities.add_face @floor_layout_points
 
-      puts "outerwall offset call"
+      # raising the outer wall
       outerwall_inner_face, outerwall = offset_wall(floor_layout, outerwall_thickness)
       outerwall.name = "outerwall"
 
-      puts "outerwall offset call"
+      # space between the outer and inner walls
       wallspace_inner_face, wall_space = offset_wall(outerwall_inner_face, wallspace_thickness)
       wall_space.erase!
 
-      puts "innerwall offset call"
-      wallspace_inner_face, innerwall = offset_wall(wallspace_inner_face, innerwall_thicness)
+      # raising the inner wall
+      innerwall_inner_face, innerwall = offset_wall(wallspace_inner_face, innerwall_thicness)
       innerwall.name = "innerwall"
+      innerwall_inner_face.erase!
 
     end # raise_walls method
 
