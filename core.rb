@@ -85,6 +85,7 @@ module TestPlugin
       # getting the vertices first for the deletion of two unused edges
       porch_area = Sketchup.active_model.active_entities.add_face(porch, porch_xup, pt2, porch_yright)
       vertices = porch_area.vertices
+      porch_point = vertices[2]
       porch_area.erase!
 
       # Delete two edges that contain the porch area
@@ -115,12 +116,19 @@ module TestPlugin
     def raise_walls
       # Defining wall attributes
       outerwall_thickness = 0.20*@meter_multiplier
-      wall_space = 0.05*@meter_multiplier
-      innerwall_thicness = 0.10*@meter_multiplier
+      wall_space = 0.05*@meter_multiplier + outerwall_thickness
+      innerwall_thicness = 0.10*@meter_multiplier + wall_space
 
       floor_layout = Sketchup.active_model.active_entities.add_face @floor_layout_points
 
+      puts "first wall offset call"
       offset_wall(floor_layout, outerwall_thickness)
+
+      puts "second wall offset call"
+      offset_wall(floor_layout, wall_space)
+
+      puts "third wall offset call"
+      offset_wall(floor_layout, innerwall_thicness)
 
       puts "raise_walls method ended"
     end # raise_walls method
@@ -143,35 +151,73 @@ module TestPlugin
       points_arr = []
       vertices = face.vertices
 
+      # counter serves as an indicator for the porch point index
+      counter = 0
+
       # Assigning new 2D points for the inner face in relative to the
       # face that was passed as an argument
       vertices.each do |vertex|
+
         points = []
+        x_factor = 0
+        y_factor = 0
+
+        # storing positions of vertex and the other_vertex of the two edges
+        vx = vertex.position.x
+        vy = vertex.position.y
         edges = vertex.edges
+        ex0 = edges[0].other_vertex(vertex).position.x
+        ey0 = edges[0].other_vertex(vertex).position.y
+        ex1 = edges[1].other_vertex(vertex).position.x
+        ey1 = edges[1].other_vertex(vertex).position.y
 
-        # Determine the x coordinate
-        # print "X: #{vertex.position.x}, #{edges[0].other_vertex(vertex).position.x}"
-        if vertex.position.x < edges[0].other_vertex(vertex).position.x
-          points << vertex.position.x + offval
-        else
-          points << vertex.position.x - offval
+
+        # This is the offset steps
+        if vx == ex0  # if edge lies in Y-axis
+          # set x
+          if vx > ex1
+            x_factor -= offval
+          else
+            x_factor += offval
+          end
+          # set y
+          if vy > ey0
+            y_factor -= offval
+          else
+            y_factor += offval
+          end
+        else # if edge lies in X-axis
+          # set x
+          if vx > ex0
+            x_factor -= offval
+          else
+            x_factor += offval
+          end
+          # set y
+          if vy > ey1
+            y_factor -= offval
+          else
+            y_factor += offval
+          end
         end
 
-        # Determine the y coordinate
-        # print "Y: #{vertex.position.y}, #{edges[1].other_vertex(vertex).position.y}"
-        if vertex.position.y < edges[1].other_vertex(vertex).position.y
-          points << vertex.position.y + offval
-        else
-          points << vertex.position.y - offval
+        # unique operation for the porch vertex
+        if counter == 2
+          x_factor -= offval*2
+          y_factor -= offval*2
         end
+
+        points = [vx+x_factor, vy+y_factor]
 
         # Adding the new XY values to the points array
         points_arr << points
+        counter+=1
+
       end # vertices each do iteration
 
-      # Sketchup.active_model.active_entities.add_face points_arr
+      points_arr << points_arr.first
+      Sketchup.active_model.active_entities.add_edges points_arr
 
-      view.invalidate
     end # offset_wallsmethod
 
     # Reset values of instance variables after every
