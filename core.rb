@@ -116,26 +116,26 @@ module TestPlugin
     def raise_walls
       # Defining wall attributes
       outerwall_thickness = 0.20*@meter_multiplier
-      wall_space = 0.05*@meter_multiplier + outerwall_thickness
-      innerwall_thicness = 0.10*@meter_multiplier + wall_space
+      wallspace_thickness = 0.05*@meter_multiplier
+      innerwall_thicness = 0.10*@meter_multiplier
 
       floor_layout = Sketchup.active_model.active_entities.add_face @floor_layout_points
 
-      puts "first wall offset call"
-      offset_wall(floor_layout, outerwall_thickness)
+      puts "outerwall offset call"
+      outerwall_inner_face, outerwall = offset_wall(floor_layout, outerwall_thickness)
+      outerwall.name = "outerwall"
 
-      puts "second wall offset call"
-      offset_wall(floor_layout, wall_space)
+      puts "outerwall offset call"
+      wallspace_inner_face, wall_space = offset_wall(outerwall_inner_face, wallspace_thickness)
+      wall_space.erase!
 
-      puts "third wall offset call"
-      offset_wall(floor_layout, innerwall_thicness)
+      puts "innerwall offset call"
+      wallspace_inner_face, innerwall = offset_wall(wallspace_inner_face, innerwall_thicness)
+      innerwall.name = "innerwall"
 
-      puts "raise_walls method ended"
     end # raise_walls method
 
     def slap
-      puts "slap method reached"
-
 
       puts "slap method ended"
       view.invalidate
@@ -172,7 +172,9 @@ module TestPlugin
         ey1 = edges[1].other_vertex(vertex).position.y
 
 
-        # This is the offset steps
+        # These are the offset steps. There definitely is a better
+        # way to do it than this, but that will be implemented
+        # when it is time to polish up
         if vx == ex0  # if edge lies in Y-axis
           # set x
           if vx > ex1
@@ -215,9 +217,21 @@ module TestPlugin
 
       end # vertices each do iteration
 
-      points_arr << points_arr.first
-      Sketchup.active_model.active_entities.add_edges points_arr
+      # Adding the first point to points_arr since we are
+      # using add_edges instead of add_face
+      # points_arr << points_arr.first
+      a_face = Sketchup.active_model.active_entities.add_face points_arr
+      face.pushpull(-2*@meter_multiplier, true)
+      wallgroup = Sketchup.active_model.active_entities.add_group a_face.all_connected
+      a_face.erase!
 
+      # return inner face left of the offset wall
+      return_face = Sketchup.active_model.active_entities.add_face points_arr
+      return_face
+
+      return return_face, wallgroup
+
+      view.invalidate
     end # offset_wallsmethod
 
     # Reset values of instance variables after every
